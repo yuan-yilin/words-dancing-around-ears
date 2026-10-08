@@ -29,8 +29,7 @@ public enum ModelLocator {
         let base = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
-        ).first
-            ?? FileManager.default.homeDirectoryForCurrentUser
+        ).first ?? URL(fileURLWithPath: NSHomeDirectory())
         let dir = base
             .appendingPathComponent("wordsdancing", isDirectory: true)
             .appendingPathComponent("models", isDirectory: true)
@@ -65,11 +64,13 @@ public enum ModelLocator {
     private static func searchPaths() -> [URL] {
         var paths: [URL] = []
 
-        // 1. 开发机共享目录
+        // 1. 开发机共享目录（仅 macOS；iOS 沙盒内无意义）
+        #if os(macOS)
         paths.append(
-            FileManager.default.homeDirectoryForCurrentUser
+            URL(fileURLWithPath: NSHomeDirectory())
                 .appendingPathComponent(".local/share/wordsdancing/models", isDirectory: true)
         )
+        #endif
 
         // 2. App 沙盒 Application Support
         paths.append(appSupportModelsDirectory())
