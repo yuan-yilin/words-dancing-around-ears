@@ -64,6 +64,23 @@ public enum ModelLocator {
     private static func searchPaths() -> [URL] {
         var paths: [URL] = []
 
+        // 0. 打进 App 资源的模型（真机测试/发布形态, App/ModelResources/）
+        if let bundled = Bundle.main.url(
+            forResource: kokoroModelName,
+            withExtension: nil
+        ) ?? Bundle.main.url(
+            forResource: "ModelResources/" + kokoroModelName,
+            withExtension: nil
+        ) {
+            paths.append(bundled)
+        }
+        if let bundledParent = Bundle.main.url(
+            forResource: "ModelResources",
+            withExtension: nil
+        ) {
+            paths.append(bundledParent)
+        }
+
         // 1. 开发机共享目录（仅 macOS；iOS 沙盒内无意义）
         #if os(macOS)
         paths.append(

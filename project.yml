@@ -20,6 +20,9 @@ targets:
     platform: macOS
     sources:
       - path: App
+        excludes:
+          - "Info-*.plist"
+          - "ModelResources/**"
     dependencies:
       - package: Core
     info:
@@ -33,6 +36,15 @@ targets:
     platform: iOS
     sources:
       - path: App
+        excludes:
+          - "Info-*.plist"
+          - "ModelResources/**"
+      # 真机测试形态: 把 Kokoro 模型打进 App（目录存在时才生效, optional）
+      # 重建方法: mkdir -p App/ModelResources && cp -Rc ~/.local/share/wordsdancing/models/kokoro-multi-lang-v1_0 App/ModelResources/
+      - path: App/ModelResources
+        optional: true
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: Core
     info:

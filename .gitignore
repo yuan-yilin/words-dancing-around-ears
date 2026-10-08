@@ -23,3 +23,4 @@ build/
 .model-cache/
 vendor-downloads/
 Packages/Core/Vendor/
+App/ModelResources/
