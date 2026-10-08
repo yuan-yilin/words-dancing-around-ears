@@ -128,9 +128,14 @@ PDFDocument(url:)
   试听文件 /tmp/wordsdancing-kokoro-test.wav
 - UI：底栏播放条（播放/暂停/停止、段进度、声音选择、5 档语速）
 
-### M4 扫描版 PDF：Vision OCR（待做）
-- OCRProvider + VisionOCR + ReadingOrderProcessor + 文本清洗；接入自动判断逻辑
-- **验证**：导入纯扫描 PDF，OCR 结果正确、多栏顺序正确、可朗读
+### M4 扫描版 PDF：Vision OCR ✅ 完成（2026-10-09）
+- `PDFPageRenderer`（PDFPage → CGImage, 2x 白底渲染）
+- `VisionOCR`（VNRecognizeTextRequest .accurate, zh-Hans/zh-Hant/en-US, 关闭不支持中文的 language correction）
+- `ReadingOrderProcessor`（递归找栏间沟槽分栏 + 行聚类, 正确处理 1~N 栏, 防短行假分栏）
+- `TextCleaner`（去页码行、连字符断词、CJK/拉丁接缝合并、段落重组）
+- `PDFOCRPipeline`（渲染→OCR→排序→清洗, 带进度回调）; App 打开含扫描页的 PDF 自动跑 OCR, 可取消
+- **验证通过**：26 个测试全过, 含 Vision 真实识别（渲染中文/英文→识别还原）
+  与扫描 PDF 端到端（位图 PDF → OCR → 文本还原）; macOS/iOS 双平台 BUILD SUCCEEDED
 
 ### M5 播放体验完善
 - 后台播放、锁屏控制、倍速、进度保存与恢复、书库列表（LibraryView）

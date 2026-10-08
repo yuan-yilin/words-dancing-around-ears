@@ -12,6 +12,10 @@ struct ContentView: View {
     @State private var showImporter = false
     @State private var selectedPage: PDFPageText?
     @State private var readerVM = ReaderViewModel()
+    // OCR 进度（0 = 未在跑）
+    @State private var ocrDone = 0
+    @State private var ocrTotal = 0
+    @State private var ocrTask: Task<Void, Never>?
 
     var body: some View {
         Group {
@@ -175,11 +179,34 @@ struct ContentView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
             Spacer()
-            Label(
-                "\(pages.count) 页 · \(scannedCount) 页疑似扫描",
-                systemImage: scannedCount > 0 ? "doc.text.viewfinder" : "doc.text"
-            )
-            .foregroundStyle(.secondary)
+            if ocrTotal > 0 {
+                ProgressView(value: Double(ocrDone), total: Double(ocrTotal))
+                    .frame(width: 120)
+                Text("OCR \(ocrDone)/\(ocrTotal)")
+                    .monospacedDigit()
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+                Button {
+                    ocrTask?.cancel()
+                    ocrTotal = 0
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("取消 OCR")
+            } else {
+                Label(
+                    "\(pages.count) 页 · \(scannedCount) 页疑似扫描",
+                    systemImage: scannedCount > 0 ? "doc.text.viewfinder" : "doc.text"
+                )
+                .foregroundStyle(.secondary)
+                if scannedCount > 0 {
+                    Button("识别扫描页") {
+                        if let document { startOCR(document: document) }
+                    }
+                }
+            }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
@@ -226,6 +253,39 @@ struct ContentView: View {
 
     // MARK: - 行为
 
+    /// 把当前页面文本（含 OCR 结果）装载进朗读器
+    private func reloadReadingText() {
+        let fullText = pages
+            .filter { !$0.isLikelyScanned }
+            .map(\.text)
+            .joined(separator: "\n")
+        readerVM.load(text: fullText)
+    }
+
+    /// 后台跑 OCR, 完成后替换扫描页文本并重新装载朗读全文
+    private func startOCR(document: PDFDocument) {
+        ocrTask?.cancel()
+        ocrTotal = pages.filter(\.isLikelyScanned).count
+        ocrDone = 0
+        let sourcePages = pages
+
+        ocrTask = Task { @MainActor in
+            let result = await PDFOCRPipeline.process(
+                document: document,
+                pages: sourcePages
+            ) { done, total in
+                self.ocrDone = done
+                self.ocrTotal = total
+            }
+            if !Task.isCancelled {
+                self.pages = result
+                reloadReadingText()
+            }
+            self.ocrDone = 0
+            self.ocrTotal = 0
+        }
+    }
+
     private func openPDF(url: URL) {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
@@ -238,12 +298,11 @@ struct ContentView: View {
             self.documentURL = url
             self.pages = PDFTextExtractor.extractPages(from: doc)
             self.selectedPage = pages.first
-            // 把有文字层的页面拼成朗读全文（扫描页 M4 接 OCR）
-            let fullText = pages
-                .filter { !$0.isLikelyScanned }
-                .map(\.text)
-                .joined(separator: "\n")
-            self.readerVM.load(text: fullText)
+            reloadReadingText()
+            // 打开即自动识别扫描页（识别中可取消）
+            if pages.contains(where: \.isLikelyScanned) {
+                startOCR(document: doc)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
