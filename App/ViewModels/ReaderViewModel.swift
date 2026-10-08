@@ -29,6 +29,9 @@ final class ReaderViewModel {
     /// 当前正在朗读的 chunk 文本（供 UI 高亮）
     private(set) var currentChunkText = ""
 
+    /// 进度变化回调（用于持久化；参数为 currentChunkIndex）
+    var onProgressChanged: ((Int) -> Void)?
+
     // MARK: - 引擎与播放器
 
     private var engine: KokoroEngine?
@@ -118,6 +121,14 @@ final class ReaderViewModel {
         isGenerating = false
     }
 
+    /// 恢复进度：只挪位置, 不自动播放
+    func restoreProgress(chunkIndex: Int) {
+        guard chunks.indices.contains(chunkIndex) else { return }
+        currentChunkIndex = chunkIndex
+        nextToEnqueue = chunkIndex
+        currentChunkText = chunks[chunkIndex]
+    }
+
     /// 跳到指定 chunk 播放
     func jump(to index: Int) {
         guard chunks.indices.contains(index) else { return }
@@ -125,7 +136,32 @@ final class ReaderViewModel {
         currentChunkIndex = index
         nextToEnqueue = index
         currentChunkText = chunks[index]
+        onProgressChanged?(index)
         play()
+    }
+
+    /// 下一段（播放中跳下一段, 暂停中只挪进度）
+    func nextChunk() {
+        let target = min(currentChunkIndex + 1, max(chunks.count - 1, 0))
+        if isPlaying && !isPaused {
+            jump(to: target)
+        } else if chunks.indices.contains(target) {
+            currentChunkIndex = target
+            currentChunkText = chunks[target]
+            onProgressChanged?(target)
+        }
+    }
+
+    /// 上一段（播放中跳上一段, 暂停中只挪进度）
+    func previousChunk() {
+        let target = max(currentChunkIndex - 1, 0)
+        if isPlaying && !isPaused {
+            jump(to: target)
+        } else if chunks.indices.contains(target) {
+            currentChunkIndex = target
+            currentChunkText = chunks[target]
+            onProgressChanged?(target)
+        }
     }
 
     // MARK: - 流水线
@@ -168,6 +204,7 @@ final class ReaderViewModel {
         if chunks.indices.contains(currentChunkIndex) {
             currentChunkText = chunks[currentChunkIndex]
         }
+        onProgressChanged?(currentChunkIndex)
     }
 
     private func handleAllFinished() {
