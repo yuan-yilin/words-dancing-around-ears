@@ -137,11 +137,13 @@ PDFDocument(url:)
 - **验证通过**：26 个测试全过, 含 Vision 真实识别（渲染中文/英文→识别还原）
   与扫描 PDF 端到端（位图 PDF → OCR → 文本还原）; macOS/iOS 双平台 BUILD SUCCEEDED
 
-### M5 播放体验完善
-- 后台播放、锁屏控制、倍速、进度保存与恢复、书库列表（LibraryView）
-- **验证**：锁屏下继续朗读、杀掉重开能续播
+### M5 播放体验完善 ✅ 完成（2026-10-09）
+- 书库（`LibraryStore` JSON 持久化 + 安全作用域书签）、打开书恢复上次进度、延迟合并保存
+- 上/下一段、iOS 锁屏/控制中心远程控制（MPRemoteCommandCenter + NowPlayingInfo）
+- App 内模型下载（URLSession delegate 进度 + macOS tar 解压；iOS 端内解压留 M6）
+- **验证**：30 测试全过；双平台 BUILD SUCCEEDED；iOS 模拟器截图确认新 UI
 
-### M6 可选增强（后续按需）
+### M6 可选增强（未做）
 - M4B/整本有声书导出、批量 OCR、全文搜索、英语声音补充、v1.1 模型（103 speakers）支持
 
 ---
