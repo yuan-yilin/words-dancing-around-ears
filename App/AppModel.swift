@@ -61,19 +61,59 @@ final class AppModel {
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
 
         do {
-            guard let doc = PDFDocument(url: url) else {
+            // 物化 iCloud 文件（触发完整下载）并拷贝进 App 存储
+            let title = url.deletingPathExtension().lastPathComponent
+            let localURL = try materializePDF(from: url, title: title)
+
+            guard let doc = PDFDocument(url: localURL) else {
                 throw PDFExtractionError.cannotOpenDocument
             }
             let record = BookRecord(
-                title: url.deletingPathExtension().lastPathComponent,
-                fileBookmark: try? url.bookmarkData(),
-                filePath: url.path,
+                title: title,
+                fileBookmark: try? localURL.bookmarkData(),
+                filePath: localURL.path,
                 pageCount: doc.pageCount
             )
-            open(document: doc, url: url, record: record)
+            open(document: doc, url: localURL, record: record)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = "导入失败：\(error.localizedDescription)"
         }
+    }
+
+    /// 拷贝 PDF 到 App 内部书库目录（NSFileCoordinator 会等待 iCloud 下载完成）
+    private func materializePDF(from source: URL, title: String) throws -> URL {
+        let fm = FileManager.default
+        let booksDir = fm.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Books", isDirectory: true)
+        try fm.createDirectory(at: booksDir, withIntermediateDirectories: true)
+
+        let destination = booksDir
+            .appendingPathComponent("\(title)-\(UUID().uuidString.prefix(8)).pdf")
+        try? fm.removeItem(at: destination)
+
+        var coordinationError: NSError?
+        var copyError: Error?
+        let coordinator = NSFileCoordinator()
+        coordinator.coordinate(
+            readingItemAt: source,
+            options: [],
+            error: &coordinationError
+        ) { sourceURL in
+            do {
+                try fm.copyItem(at: sourceURL, to: destination)
+            } catch {
+                copyError = error
+            }
+        }
+        if let error = copyError ?? coordinationError as? Error {
+            throw error
+        }
+        // 简单校验：拷贝出来的文件应该能解析出页面
+        guard let probe = PDFDocument(url: destination), probe.pageCount > 0 else {
+            try? fm.removeItem(at: destination)
+            throw PDFExtractionError.cannotOpenDocument
+        }
+        return destination
     }
 
     /// 打开书库中的书（进度恢复）
