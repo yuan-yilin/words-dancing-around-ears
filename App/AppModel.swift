@@ -26,8 +26,19 @@ final class AppModel {
     private(set) var ocrTotal = 0
     private(set) var errorMessage: String?
 
+    /// 文件选择器由根视图 ContentView 统一呈现（避免与 alert 同层级互相卡死）
+    var showImporter = false
+
     func clearError() {
         errorMessage = nil
+    }
+
+    /// 延迟展示错误（不能在 fileImporter 关闭动画期间弹 alert, 会卡死后续呈现）
+    private func reportError(_ message: String) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            self.errorMessage = message
+        }
     }
 
     let readerVM = ReaderViewModel()
@@ -76,7 +87,7 @@ final class AppModel {
             )
             open(document: doc, url: localURL, record: record)
         } catch {
-            errorMessage = "导入失败：\(error.localizedDescription)"
+            reportError("导入失败：\(error.localizedDescription)")
         }
     }
 
@@ -134,7 +145,7 @@ final class AppModel {
             url = URL(fileURLWithPath: path)
         }
         guard let url, let doc = PDFDocument(url: url) else {
-            errorMessage = "无法访问「\(record.title)」的文件（可能已移动或删除）"
+            reportError("无法访问「\(record.title)」的文件（可能已移动或删除）")
             return
         }
         record.lastReadAt = Date()

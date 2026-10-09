@@ -1,7 +1,9 @@
 import SwiftUI
 import Core
+import UniformTypeIdentifiers
 
-/// 根视图：书库 ⇄ 阅读器切换
+/// 根视图：书库 ⇄ 阅读器切换。
+/// fileImporter 与 alert 统一挂在这一层（挂在内层与 alert 同层级会互相卡死呈现）。
 struct ContentView: View {
     @Environment(AppModel.self) private var app
 
@@ -15,14 +17,35 @@ struct ContentView: View {
                     .transition(.opacity)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .fileImporter(
+            isPresented: Binding(
+                get: { app.showImporter },
+                set: { app.showImporter = $0 }
+            ),
+            allowedContentTypes: [.pdf],
+            allowsMultipleSelection: false
+        ) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                app.importPDF(url: url)
+            }
+        }
+        .alert("错误", isPresented: .init(
+            get: { app.errorMessage != nil },
+            set: { if !$0 { app.clearError() } }
+        )) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(app.errorMessage ?? "")
+        }
         .animation(.easeInOut(duration: 0.15), value: app.isReading)
         .onChange(of: app.isReading) { _, reading in
             #if canImport(MediaPlayer)
             if !reading {
                 NowPlayingCoordinator.shared.deactivate()
             }
-            // 播放中离开阅读页 = 停止（MVP 简化；后台播放只发生在阅读器停留时）
             #endif
         }
     }
 }
+

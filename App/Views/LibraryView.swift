@@ -4,7 +4,6 @@ import Core
 /// 书库首页：最近阅读列表 + 导入 + 模型状态
 struct LibraryView: View {
     @Environment(AppModel.self) private var app
-    @State private var showImporter = false
 
     var body: some View {
         Group {
@@ -14,24 +13,10 @@ struct LibraryView: View {
                 bookList
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        #if os(macOS)
         .frame(minWidth: 720, minHeight: 520)
-        .fileImporter(
-            isPresented: $showImporter,
-            allowedContentTypes: [.pdf],
-            allowsMultipleSelection: false
-        ) { result in
-            if case .success(let urls) = result, let url = urls.first {
-                app.importPDF(url: url)
-            }
-        }
-        .alert("错误", isPresented: .init(
-            get: { app.errorMessage != nil },
-            set: { if !$0 { app.clearError() } }
-        )) {
-            Button("好", role: .cancel) {}
-        } message: {
-            Text(app.errorMessage ?? "")
-        }
+        #endif
     }
 
     // MARK: - 空状态
@@ -46,7 +31,7 @@ struct LibraryView: View {
             Text("完全离线的 PDF AI 朗读 · iPhone & Mac")
                 .foregroundStyle(.secondary)
             Button {
-                showImporter = true
+                app.showImporter = true
             } label: {
                 Label("导入 PDF", systemImage: "doc.badge.plus")
                     .padding(.horizontal, 8)
@@ -90,7 +75,7 @@ struct LibraryView: View {
             Divider()
             HStack(spacing: 12) {
                 Button {
-                    showImporter = true
+                    app.showImporter = true
                 } label: {
                     Label("导入 PDF", systemImage: "doc.badge.plus")
                 }
